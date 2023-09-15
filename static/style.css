@@ -1,0 +1,15 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background-color: grey;
+}
+p {
+    color: red;
+    font-weight: bold;
+}
+img {
+    width: 500px;
+    height: 500px;
+}
