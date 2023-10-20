@@ -1,10 +1,8 @@
-from flask import Flask, request, render_template, redirect, url_for, g
-import sqlite3, os
+from flask import Flask, render_template, request, redirect, url_for,Blueprint
+import sqlite3,datetime,os
 from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import UniqueConstraint
-import datetime
-# from datetime import datetime
+from . import db_manager as db
+from .models import Category,Product,User
 
 DATABASE = 'database.db'
 UPLOAD_FOLDER = "upload"
@@ -18,61 +16,15 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #         db = g._database = sqlite3.connect(DATABASE)
 #     return db
 
+main_bp = Blueprint(
+    "main_bp", __name__, template_folder="templates", static_folder="static"
+)
+
 basedir = os.path.abspath(os.path.dirname(__file__)) 
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + basedir + "/database.db"
-app.config["SQLALCHEMY_ECHO"] = True
-
 # Inicio SQLAlchemy
-db = SQLAlchemy()
-db.init_app(app)
+
 now = datetime.datetime.utcnow
-
-class Category(db.Model):
-    __tablename__ = "categories"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.Text, nullable=False, unique=True)
-    slug = db.Column(db.Text, nullable=False, unique=True)
-
-# class ConfirmedOrder(db.Model):
-#     __tablename__ = "confirmed_orders"
-#     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-#     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"))
-#     created = db.Column(db.DateTime, default=now)
-
-# class Order(db.Model):
-#     __tablename__ = "orders"
-#     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-#     product_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
-#     buyer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-#     created = db.Column(db.DateTime, default=now)
-#     UniqueConstraint("products.id","users.id", name="uc_product_buyer")
-
-class Product(db.Model):
-    __tablename__ = "products"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.Text, nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    photo = db.Column(db.Text, nullable=False)
-    price = db.Column(db.Numeric(10,2), nullable=False)
-    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
-    seller_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    created = db.Column(db.DateTime, default=now)
-    updated = db.Column(db.DateTime, default=now)
-
-# class SQLiteSequence(db.Model):
-#     __tablename__ = "sqlite_sequence"
-#     name = db.Column(db.Text, nullable=False, primary_key=True)
-#     seq = db.Column(db.Text, nullable=False)
-
-class User(db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.Text, nullable=False, unique=True)
-    email = db.Column(db.Text, nullable=False, unique=True)
-    password = db.Column(db.Text, nullable=False)
-    created = db.Column(db.DateTime, default=now)
-    updated = db.Column(db.DateTime, default=now)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -85,11 +37,11 @@ def get_db_connection():
     return con
 
 
-@app.route("/")
+@main_bp.route("/")
 def hello_world():
     return render_template('hello.html')
 
-@app.route("/list")
+@main_bp.route("/list")
 def lista_productes():
     # try:
     #     with get_db_connection() as con:
@@ -101,7 +53,7 @@ def lista_productes():
     datos = db.session.query(Product).all()
     return render_template("products/list.html", datos=datos)
     
-@app.route("/products/create", methods = ["GET", "POST"])
+@main_bp.route("/products/create", methods = ["GET", "POST"])
 def crear_productes():
     # try:
     if request.method == 'GET':
@@ -137,11 +89,11 @@ def crear_productes():
     db.session.add(producte_nou)
     db.session.commit()
 
-    return redirect(url_for("lista_productes"))
+    return redirect(url_for("main_bp.lista_productes"))
     # except:
     #     return("Error al crear el producte")
 
-@app.route("/products/update/<int:product_id>", methods = ["GET", "POST"])
+@main_bp.route("/products/update/<int:product_id>", methods = ["GET", "POST"])
 def modificar_producte(product_id):
     producte = db.session.query(Product).filter(Product.id == product_id).one()
 
@@ -166,17 +118,17 @@ def modificar_producte(product_id):
         db.session.add(producte)
         db.session.commit()
 
-        return redirect(url_for('lista_productes'))
+        return redirect(url_for('main_bp.lista_productes'))
     
-@app.route("/products/delete/<int:product_id>", methods=["GET"])
+@main_bp.route("/products/delete/<int:product_id>", methods=["GET"])
 def eliminar_producte(product_id):
     producte = db.session.query(Product).filter(Product.id == product_id).first()
     if producte:
         db.session.delete(producte)
         db.session.commit()
-    return redirect(url_for("lista_productes"))
+    return redirect(url_for("main_bp.lista_productes"))
 
-@app.route("/products/read/<int:product_id>")
+@main_bp.route("/products/read/<int:product_id>")
 def ver_producte(product_id):
     producte = db.session.query(Product).filter(Product.id == product_id).one()
     return render_template("products/read.html", producte=producte)
@@ -184,3 +136,4 @@ def ver_producte(product_id):
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5001, debug=True)
+
